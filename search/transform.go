@@ -160,17 +160,51 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		}
 	}
 
+	if post.Embed != nil && post.Embed.EmbedVideo != nil {
+		embedImgCount = 1
+		alt := *post.Embed.EmbedVideo.Alt
+		if alt != "" {
+			embedImgAltText = append(embedImgAltText, alt)
+			if containsJapanese(alt) {
+				embedImgAltTextJA = append(embedImgAltTextJA, alt)
+			}
+		}
+	}
+
+	if post.Embed != nil &&
+		post.Embed.EmbedExternal != nil &&
+		strings.HasPrefix(post.Embed.EmbedExternal.External.Uri, "https://media.tenor.com") {
+			embedImgCount = 1
+			alt := post.Embed.EmbedExternal.External.Description
+			if alt != "" {
+				embedImgAltText = append(embedImgAltText, alt)
+				if containsJapanese(alt) {
+					embedImgAltTextJA = append(embedImgAltTextJA, alt)
+				}
+			}
+	}
+
 	if post.Embed != nil &&
 		post.Embed.EmbedRecordWithMedia != nil &&
-		post.Embed.EmbedRecordWithMedia.Media != nil &&
-		post.Embed.EmbedRecordWithMedia.Media.EmbedImages != nil &&
-		len(post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images) > 0 {
-		embedImgCount += len(post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images)
-		for _, img := range post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images {
-			if img.Alt != "" {
-				embedImgAltText = append(embedImgAltText, img.Alt)
-				if containsJapanese(img.Alt) {
-					embedImgAltTextJA = append(embedImgAltTextJA, img.Alt)
+		post.Embed.EmbedRecordWithMedia.Media != nil {
+		if post.Embed.EmbedRecordWithMedia.Media.EmbedImages != nil &&
+			len(post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images) > 0 {
+			embedImgCount += len(post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images)
+			for _, img := range post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images {
+				if img.Alt != "" {
+					embedImgAltText = append(embedImgAltText, img.Alt)
+					if containsJapanese(img.Alt) {
+						embedImgAltTextJA = append(embedImgAltTextJA, img.Alt)
+					}
+				}
+			}
+		} else if post.Embed.EmbedRecordWithMedia.Media.EmbedVideo != nil {
+			embedImgCount += 1
+			alt := *post.Embed.EmbedRecordWithMedia.Media.EmbedVideo.Alt
+			if alt != "" {
+				embedImgAltText = append(embedImgAltText, alt)
+				if containsJapanese(alt) {
+					embedImgAltTextJA = append(embedImgAltTextJA, alt)
 				}
 			}
 		}

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"testing"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -59,21 +60,30 @@ func testServer(ctx context.Context, t *testing.T, escli *es.Client, dir identit
 	}
 
 	srv, err := NewServer(
-		db,
 		escli,
 		dir,
-		Config{
-			RelayHost:           "wss://relay.invalid",
-			PostIndex:           testPostIndex,
-			ProfileIndex:        testProfileIndex,
-			Logger:              slog.Default(),
-			RelaySyncRateLimit:  1,
-			IndexMaxConcurrency: 1,
+		ServerConfig{
+			PostIndex:    testPostIndex,
+			ProfileIndex: testProfileIndex,
+			Logger:       slog.Default(),
 		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	idx, err := NewIndexer(db, escli, dir, IndexerConfig{
+		RelayHost:           "wss://relay.invalid",
+		RelaySyncRateLimit:  1,
+		IndexMaxConcurrency: 1,
+		PostIndex:           testPostIndex,
+		ProfileIndex:        testProfileIndex,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv.Indexer = idx
 
 	// NOTE: skipping errors
 	resp, _ := srv.escli.Indices.Delete([]string{testPostIndex, testProfileIndex})
@@ -98,103 +108,187 @@ func TestJapaneseRegressions(t *testing.T) {
 		Handle: syntax.Handle("handle.example.com"),
 	}
 
-	res, err := DoSearchPosts(ctx, &dir, escli, testPostIndex, "english", 0, 20)
+	res, err := DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "english",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(0, len(res.Hits.Hits))
 
 	p1 := appbsky.FeedPost{Text: "basic english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p1, "app.bsky.feed.post/3kpnillluoh2y", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p1, rkey: "3kpnillluoh2y", rcid: cid.Undef},
+	}))
 
 	// https://github.com/bluesky-social/indigo/issues/302
 	p2 := appbsky.FeedPost{Text: "学校から帰って熱いお風呂に入ったら力一杯がんばる", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p2, "app.bsky.feed.post/3kpnillluo222", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p2, rkey: "3kpnillluo222", rcid: cid.Undef},
+	}))
 	p3 := appbsky.FeedPost{Text: "熱力学", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p3, "app.bsky.feed.post/3kpnillluo333", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p3, rkey: "3kpnillluo333", rcid: cid.Undef},
+	}))
 	p4 := appbsky.FeedPost{Text: "東京都", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p4, "app.bsky.feed.post/3kpnillluo444", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p4, rkey: "3kpnillluo444", rcid: cid.Undef},
+	}))
 	p5 := appbsky.FeedPost{Text: "京都", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p5, "app.bsky.feed.post/3kpnillluo555", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p5, rkey: "3kpnillluo555", rcid: cid.Undef},
+	}))
 	p6 := appbsky.FeedPost{Text: "パリ", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p6, "app.bsky.feed.post/3kpnillluo666", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p6, rkey: "3kpnillluo666", rcid: cid.Undef},
+	}))
 	p7 := appbsky.FeedPost{Text: "ハリー・ポッター", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p7, "app.bsky.feed.post/3kpnillluo777", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p7, rkey: "3kpnillluo777", rcid: cid.Undef},
+	}))
 	p8 := appbsky.FeedPost{Text: "ハリ", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p8, "app.bsky.feed.post/3kpnillluo223", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p8, rkey: "3kpnillluo223", rcid: cid.Undef},
+	}))
 	p9 := appbsky.FeedPost{Text: "multilingual 多言語", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p9, "app.bsky.feed.post/3kpnillluo224", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p9, rkey: "3kpnillluo224", rcid: cid.Undef},
+	}))
 
 	_, err = srv.escli.Indices.Refresh()
 	assert.NoError(err)
 
 	// expect all to be indexed
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "*", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "*",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(9, len(res.Hits.Hits))
 
 	// check that english matches (single post)
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "english", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "english",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// "thermodynamics"; should return only one match
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "熱力学", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "熱力学",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// "Kyoto"; should return only one match
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "京都", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "京都",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// "Paris"; should return only one match
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "パリ", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "パリ",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// should return only one match
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "ハリー", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "ハリー",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// part of a word; should match none
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "ハ", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "ハ",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(0, len(res.Hits.Hits))
 
 	// should match both ways, and together
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "multilingual", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "multilingual",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "多言語", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "多言語",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "multilingual 多言語", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "multilingual 多言語",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "\"multilingual 多言語\"", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "multilingual 多言語",
+		Offset: 0,
+		Size:   20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "multilingual 多言語",
+		Offset: 0,
+		Size:   20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "\"multilingual 多言語\"",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,16 +312,24 @@ func TestParsedQuery(t *testing.T) {
 	dir.Insert(ident)
 	dir.Insert(other)
 
-	res, err := DoSearchPosts(ctx, &dir, escli, testPostIndex, "english", 0, 20)
+	res, err := DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "english",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(0, len(res.Hits.Hits))
 
 	p1 := appbsky.FeedPost{Text: "basic english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p1, "app.bsky.feed.post/3kpnillluoh2y", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p1, rkey: "3kpnillluoh2y", rcid: cid.Undef},
+	}))
 	p2 := appbsky.FeedPost{Text: "another english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p2, "app.bsky.feed.post/3kpnilllu2222", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p2, rkey: "3kpnilllu2222", rcid: cid.Undef},
+	}))
 	p3 := appbsky.FeedPost{
 		Text:      "#cat post with hashtag",
 		CreatedAt: "2024-01-02T03:04:05.006Z",
@@ -247,7 +349,9 @@ func TestParsedQuery(t *testing.T) {
 			},
 		},
 	}
-	assert.NoError(srv.indexPost(ctx, &ident, &p3, "app.bsky.feed.post/3kpnilllu3333", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p3, rkey: "3kpnilllu3333", rcid: cid.Undef},
+	}))
 	p4 := appbsky.FeedPost{
 		Text:      "@other.example.com post with mention",
 		CreatedAt: "2024-01-02T03:04:05.006Z",
@@ -267,7 +371,9 @@ func TestParsedQuery(t *testing.T) {
 			},
 		},
 	}
-	assert.NoError(srv.indexPost(ctx, &ident, &p4, "app.bsky.feed.post/3kpnilllu4444", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p4, rkey: "3kpnilllu4444", rcid: cid.Undef},
+	}))
 	p5 := appbsky.FeedPost{
 		Text:      "https://bsky.app... post with hashtag #cat",
 		CreatedAt: "2024-01-02T03:04:05.006Z",
@@ -287,124 +393,228 @@ func TestParsedQuery(t *testing.T) {
 			},
 		},
 	}
-	assert.NoError(srv.indexPost(ctx, &ident, &p5, "app.bsky.feed.post/3kpnilllu5555", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p5, rkey: "3kpnilllu5555", rcid: cid.Undef},
+	}))
 	p6 := appbsky.FeedPost{
 		Text:      "post with lang (deutsch)",
 		CreatedAt: "2024-01-02T03:04:05.006Z",
 		Langs:     []string{"ja", "de-DE"},
 	}
-	assert.NoError(srv.indexPost(ctx, &ident, &p6, "app.bsky.feed.post/3kpnilllu6666", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p6, rkey: "3kpnilllu6666", rcid: cid.Undef},
+	}))
 	p7 := appbsky.FeedPost{Text: "post with old date", CreatedAt: "2020-05-03T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p7, "app.bsky.feed.post/3kpnilllu7777", cid.Undef))
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p7, rkey: "3kpnilllu7777", rcid: cid.Undef},
+	}))
+	p8 := appbsky.FeedPost{
+		Text:      "post with parent",
+		CreatedAt: "2024-01-02T03:04:05.006Z",
+		Reply: &appbsky.FeedPost_ReplyRef{
+			Parent: &comatproto.RepoStrongRef{
+				Uri: "at://did:plc:abc111/app.bsky.feed.post/3kpnilllu4444",
+			},
+			Root: &comatproto.RepoStrongRef{
+				Uri: "at://did:plc:abc111/app.bsky.feed.post/3kpnilllu4444",
+			},
+		},
+	}
+	assert.NoError(srv.Indexer.indexPosts(ctx, []*PostIndexJob{
+		&PostIndexJob{did: ident.DID, record: &p8, rkey: "3kpnilllu8888", rcid: cid.Undef},
+	}))
 
 	_, err = srv.escli.Indices.Refresh()
 	assert.NoError(err)
 
 	// expect all to be indexed
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "*", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "*",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(7, len(res.Hits.Hits))
+	assert.Equal(8, len(res.Hits.Hits))
 
 	// check that english matches both
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "english", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "english",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(2, len(res.Hits.Hits))
 
 	// phrase only matches one
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "\"basic english\"", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "\"basic english\"",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// posts-by
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "from:handle.example.com", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "from:handle.example.com",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(7, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "from:@handle.example.com", 0, 20)
+	assert.Equal(8, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "from:@handle.example.com",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(7, len(res.Hits.Hits))
+	assert.Equal(8, len(res.Hits.Hits))
 
 	// hashtag query
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "post #trick", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "post #trick",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "post #Trick", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "post #Trick",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "post #trick #allMustMatch", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "post #trick #allMustMatch",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(0, len(res.Hits.Hits))
 
 	// mention query
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "@other.example.com", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "@other.example.com",
+		Offset: 0,
+		Size:   20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+
+	// to parent query
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "to:handle.example.com",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// URL and domain queries
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "https://en.wikipedia.org/wiki/CBOR?a=1&q=3", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "https://en.wikipedia.org/wiki/CBOR?a=1&q=3",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "\"https://en.wikipedia.org/wiki/CBOR?a=1&q=3\"", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "\"https://en.wikipedia.org/wiki/CBOR?a=1&q=3\"",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(0, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "https://en.wikipedia.org/wiki/CBOR", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "https://en.wikipedia.org/wiki/CBOR",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(0, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "domain:en.wikipedia.org", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "domain:en.wikipedia.org",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// lang filter
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "lang:de", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "lang:de",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 
 	// date range filters
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "since:2023-01-01T00:00:00Z", 0, 20)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(6, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "since:2023-01-01", 0, 20)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(6, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "until:2023-01-01", 0, 20)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(1, len(res.Hits.Hits))
-	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "until:asdf", 0, 20)
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "since:2023-01-01T00:00:00Z",
+		Offset: 0,
+		Size:   20,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(7, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "since:2023-01-01",
+		Offset: 0,
+		Size:   20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(7, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "until:2023-01-01",
+		Offset: 0,
+		Size:   20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, &PostSearchParams{
+		Query:  "until:asdf",
+		Offset: 0,
+		Size:   20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(8, len(res.Hits.Hits))
 }

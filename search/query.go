@@ -119,10 +119,18 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 
 	if p.Mentions != nil {
 		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"mention_did": map[string]interface{}{
-				"value":            p.Mentions.String(),
-				"case_insensitive": true,
-			}},
+			"bool": map[string]interface{}{
+				"should": []map[string]interface{}{
+					{"term": map[string]interface{}{"mention_did": map[string]interface{}{
+						"value":            p.Mentions.String(),
+						"case_insensitive": true,
+					}}},
+					{"term": map[string]interface{}{"parent_did": map[string]interface{}{
+						"value":            p.Mentions.String(),
+						"case_insensitive": true,
+					}}},
+				},
+			},
 		})
 	}
 

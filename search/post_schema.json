@@ -79,6 +79,7 @@
         "lang_code":      { "type": "keyword", "normalizer": "default" },
         "lang_code_iso2": { "type": "keyword", "normalizer": "default" },
         "mention_did":    { "type": "keyword", "normalizer": "default" },
+        "parent_did":     { "type": "keyword", "normalizer": "default" },
         "embed_aturi":    { "type": "keyword", "normalizer": "default" },
         "reply_root_aturi": { "type": "keyword", "normalizer": "default" },
         "embed_img_count": { "type": "integer" },

@@ -41,6 +41,7 @@ type PostDoc struct {
 	LangCode          []string `json:"lang_code,omitempty"`
 	LangCodeIso2      []string `json:"lang_code_iso2,omitempty"`
 	MentionDID        []string `json:"mention_did,omitempty"`
+	ParentDid         *string  `json:"parent_did,omitempty"`
 	EmbedATURI        *string  `json:"embed_aturi,omitempty"`
 	ReplyRootATURI    *string  `json:"reply_root_aturi,omitempty"`
 	EmbedImgCount     int      `json:"embed_img_count"`
@@ -132,8 +133,14 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		}
 	}
 	var replyRootATURI *string
+	var parentDID *string
 	if post.Reply != nil {
 		replyRootATURI = &(post.Reply.Root.Uri)
+		parsedATURI, err := syntax.ParseATURI(post.Reply.Parent.Uri)
+		if nil == err && parsedATURI.Authority().IsDID() {
+			did := parsedATURI.Authority().String()
+			parentDID = &did
+		}
 	}
 	if post.Embed != nil && post.Embed.EmbedExternal != nil {
 		urls = append(urls, post.Embed.EmbedExternal.External.Uri)
@@ -174,14 +181,14 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 	if post.Embed != nil &&
 		post.Embed.EmbedExternal != nil &&
 		strings.HasPrefix(post.Embed.EmbedExternal.External.Uri, "https://media.tenor.com") {
-			embedImgCount = 1
-			alt := post.Embed.EmbedExternal.External.Description
-			if alt != "" {
-				embedImgAltText = append(embedImgAltText, alt)
-				if containsJapanese(alt) {
-					embedImgAltTextJA = append(embedImgAltTextJA, alt)
-				}
+		embedImgCount = 1
+		alt := post.Embed.EmbedExternal.External.Description
+		if alt != "" {
+			embedImgAltText = append(embedImgAltText, alt)
+			if containsJapanese(alt) {
+				embedImgAltTextJA = append(embedImgAltTextJA, alt)
 			}
+		}
 	}
 
 	if post.Embed != nil &&
@@ -236,6 +243,7 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		LangCode:          post.Langs,
 		LangCodeIso2:      langCodeIso2,
 		MentionDID:        mentionDIDs,
+		ParentDid:         parentDID,
 		EmbedATURI:        embedATURI,
 		ReplyRootATURI:    replyRootATURI,
 		EmbedImgCount:     embedImgCount,

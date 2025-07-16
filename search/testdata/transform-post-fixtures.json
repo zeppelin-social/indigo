@@ -136,6 +136,7 @@
 			"mention_did": [
 				"did:plc:ewvi7nxzyoun6zhxrhs64oiz"
 			],
+			"parent_did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
 			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
 			"lang_code": [
 				"th",

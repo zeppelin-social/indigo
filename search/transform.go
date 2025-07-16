@@ -167,7 +167,7 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		}
 	}
 
-	if post.Embed != nil && post.Embed.EmbedVideo != nil {
+	if post.Embed != nil && post.Embed.EmbedVideo != nil && post.Embed.EmbedVideo.Alt != nil {
 		embedImgCount = 1
 		alt := *post.Embed.EmbedVideo.Alt
 		if alt != "" {
@@ -205,7 +205,8 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 					}
 				}
 			}
-		} else if post.Embed.EmbedRecordWithMedia.Media.EmbedVideo != nil {
+		} else if post.Embed.EmbedRecordWithMedia.Media.EmbedVideo != nil &&
+			post.Embed.EmbedRecordWithMedia.Media.EmbedVideo.Alt != nil {
 			embedImgCount += 1
 			alt := *post.Embed.EmbedRecordWithMedia.Media.EmbedVideo.Alt
 			if alt != "" {

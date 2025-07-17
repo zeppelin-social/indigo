@@ -61,6 +61,7 @@ type PostSearchParams struct {
 	Domain   string           `json:"domain"`
 	URL      string           `json:"url"`
 	Tags     []string         `json:"tag"`
+	Has      string           `json:"has"`
 	Viewer   *syntax.DID      `json:"viewer"`
 	Offset   int              `json:"offset"`
 	Size     int              `json:"size"`
@@ -177,6 +178,15 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 		filters = append(filters, map[string]interface{}{
 			"term": map[string]interface{}{"domain": map[string]interface{}{
 				"value":            p.Domain,
+				"case_insensitive": true,
+			}},
+		})
+	}
+
+	if p.Has != "" {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"has": map[string]interface{}{
+				"value":            p.Has,
 				"case_insensitive": true,
 			}},
 		})

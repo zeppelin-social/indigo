@@ -91,6 +91,7 @@
         "domain":         { "type": "keyword", "normalizer": "default" },
         "tag":            { "type": "keyword", "normalizer": "default" },
         "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
+        "has":            { "type": "keyword", "normalizer": "default" },
 
         "likesFuzzy":     { "type": "integer" },
 

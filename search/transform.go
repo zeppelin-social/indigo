@@ -52,6 +52,7 @@ type PostDoc struct {
 	Domain            []string `json:"domain,omitempty"`
 	Tag               []string `json:"tag,omitempty"`
 	Emoji             []string `json:"emoji,omitempty"`
+	Has               []string `json:"has,omitempty"`
 }
 
 // Returns the search index document ID (`_id`) for this document.
@@ -104,8 +105,10 @@ func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, c
 }
 
 func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) PostDoc {
+	has := make(map[string]struct{})
 	altText := []string{}
 	if post.Embed != nil && post.Embed.EmbedImages != nil {
+		has["image"] = struct{}{}
 		for _, img := range post.Embed.EmbedImages.Images {
 			if img.Alt != "" {
 				altText = append(altText, img.Alt)
@@ -125,9 +128,11 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 	for _, facet := range post.Facets {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Mention != nil {
+				has["mention"] = struct{}{}
 				mentionDIDs = append(mentionDIDs, feat.RichtextFacet_Mention.Did)
 			}
 			if feat.RichtextFacet_Link != nil {
+				has["link"] = struct{}{}
 				urls = append(urls, feat.RichtextFacet_Link.Uri)
 			}
 		}
@@ -143,19 +148,23 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		}
 	}
 	if post.Embed != nil && post.Embed.EmbedExternal != nil {
+		has["link"] = struct{}{}
 		urls = append(urls, post.Embed.EmbedExternal.External.Uri)
 	}
 	var embedATURI *string
 	if post.Embed != nil && post.Embed.EmbedRecord != nil {
+		has["quote"] = struct{}{}
 		embedATURI = &post.Embed.EmbedRecord.Record.Uri
 	}
 	if post.Embed != nil && post.Embed.EmbedRecordWithMedia != nil {
+		has["quote"] = struct{}{}
 		embedATURI = &post.Embed.EmbedRecordWithMedia.Record.Record.Uri
 	}
 	var embedImgCount int
 	var embedImgAltText []string
 	var embedImgAltTextJA []string
 	if post.Embed != nil && post.Embed.EmbedImages != nil {
+		has["image"] = struct{}{}
 		embedImgCount = len(post.Embed.EmbedImages.Images)
 		for _, img := range post.Embed.EmbedImages.Images {
 			if img.Alt != "" {
@@ -167,13 +176,16 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		}
 	}
 
-	if post.Embed != nil && post.Embed.EmbedVideo != nil && post.Embed.EmbedVideo.Alt != nil {
-		embedImgCount = 1
-		alt := *post.Embed.EmbedVideo.Alt
-		if alt != "" {
-			embedImgAltText = append(embedImgAltText, alt)
-			if containsJapanese(alt) {
-				embedImgAltTextJA = append(embedImgAltTextJA, alt)
+	if post.Embed != nil && post.Embed.EmbedVideo != nil {
+		has["video"] = struct{}{}
+		if post.Embed.EmbedVideo.Alt != nil {
+			embedImgCount = 1
+			alt := *post.Embed.EmbedVideo.Alt
+			if alt != "" {
+				embedImgAltText = append(embedImgAltText, alt)
+				if containsJapanese(alt) {
+					embedImgAltTextJA = append(embedImgAltTextJA, alt)
+				}
 			}
 		}
 	}
@@ -181,6 +193,7 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 	if post.Embed != nil &&
 		post.Embed.EmbedExternal != nil &&
 		strings.HasPrefix(post.Embed.EmbedExternal.External.Uri, "https://media.tenor.com") {
+		has["gif"] = struct{}{}
 		embedImgCount = 1
 		alt := post.Embed.EmbedExternal.External.Description
 		if alt != "" {
@@ -196,6 +209,7 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		post.Embed.EmbedRecordWithMedia.Media != nil {
 		if post.Embed.EmbedRecordWithMedia.Media.EmbedImages != nil &&
 			len(post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images) > 0 {
+			has["image"] = struct{}{}
 			embedImgCount += len(post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images)
 			for _, img := range post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images {
 				if img.Alt != "" {
@@ -205,14 +219,16 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 					}
 				}
 			}
-		} else if post.Embed.EmbedRecordWithMedia.Media.EmbedVideo != nil &&
-			post.Embed.EmbedRecordWithMedia.Media.EmbedVideo.Alt != nil {
-			embedImgCount += 1
-			alt := *post.Embed.EmbedRecordWithMedia.Media.EmbedVideo.Alt
-			if alt != "" {
-				embedImgAltText = append(embedImgAltText, alt)
-				if containsJapanese(alt) {
-					embedImgAltTextJA = append(embedImgAltTextJA, alt)
+		} else if post.Embed.EmbedRecordWithMedia.Media.EmbedVideo != nil {
+			has["video"] = struct{}{}
+			if post.Embed.EmbedRecordWithMedia.Media.EmbedVideo.Alt != nil {
+				embedImgCount += 1
+				alt := *post.Embed.EmbedRecordWithMedia.Media.EmbedVideo.Alt
+				if alt != "" {
+					embedImgAltText = append(embedImgAltText, alt)
+					if containsJapanese(alt) {
+						embedImgAltTextJA = append(embedImgAltTextJA, alt)
+					}
 				}
 			}
 		}
@@ -235,6 +251,11 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		}
 	}
 
+	var hask []string
+	for k, _ := range has {
+		hask = append(hask, k)
+	}
+
 	doc := PostDoc{
 		DocIndexTs:        syntax.DatetimeNow().String(),
 		DID:               did.String(),
@@ -255,6 +276,7 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		Domain:            domains,
 		Tag:               parsePostTags(post),
 		Emoji:             parseEmojis(post.Text),
+		Has:               hask,
 	}
 
 	if containsJapanese(post.Text) {

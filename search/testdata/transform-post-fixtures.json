@@ -40,7 +40,10 @@
 			"domain": [
 				"bsky.app"
 			],
-			"embed_img_count": 0
+			"embed_img_count": 0,
+			"has": [
+				"link"
+			]
 		}
 	},
 	{
@@ -165,7 +168,12 @@
 				"\ud83c\udf85\ud83c\udfff",
 				"\ud83c\uddf8\ud83c\udde8"
 			],
-			"embed_img_count": 0
+			"embed_img_count": 0,
+			"has": [
+				"mention",
+				"link",
+				"quote"
+			]
 		}
 	},
 	{
@@ -218,7 +226,10 @@
 				"brief alt text description of the first image",
 				"brief alt text description of the second image"
 			],
-			"embed_img_count": 2
+			"embed_img_count": 2,
+			"has": [
+				"image"
+			]
 		}
 	},
 	{
@@ -275,7 +286,10 @@
 			"embed_img_alt_text_ja": [
 				"brief alt text description of the first image ハリー・ポッター"
 			],
-			"embed_img_count": 2
+			"embed_img_count": 2,
+			"has": [
+				"image"
+			]
 		}
 	},
 	{
@@ -339,7 +353,11 @@
 				"brief alt text description of the second image"
 			],
 			"embed_img_count": 2,
-			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g"
+			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
+			"has": [
+				"quote",
+				"image"
+			]
 		}
 	}
 ]
